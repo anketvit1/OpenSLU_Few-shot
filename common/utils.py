@@ -5,7 +5,7 @@ import os
 import tarfile
 from typing import List, Tuple
 import zipfile
-from collections import Callable
+from collections.abc import Callable
 from ruamel import yaml
 import requests
 import torch
@@ -163,7 +163,7 @@ class OutputData():
         # with open(f"{path}/intent.jsonl", "w") as f:
         #     for x in self.intent_ids:
         #         f.write(json.dumps(x) + "\n")
-        with open(f"{path}/outputs.jsonl", "w") as f:
+        with open(f"{path}/outputs.jsonl", "w", encoding="utf-8") as f:
             if original_dataset is not None:
                 for i, s, d in zip(self.intent_ids, self.slot_ids, original_dataset):
                     f.write(json.dumps({"pred_intent": i, "pred_slot": s, "text": d["text"], "golden_intent":d["intent"], "golden_slot":d["slot"]}, ensure_ascii=False) + "\n")

@@ -6,21 +6,15 @@ base:
   test: true
   device: cuda
   seed: 42
-  epoch_num: 5
+  epoch_num: 5 #300
   batch_size: 16
 
 model_manager:
   load_dir: null
-  save_dir: save/bi-model-atis
-
-accelerator:
-  use_accelerator: false
-
-dataset:
-  dataset_name: atis
+  save_dir: save/slot-gated-slurp
 
 evaluator:
-  best_key: intent_acc
+  best_key: EMA
   eval_by_epoch: true
   # eval_step: 1800
   metric:
@@ -28,6 +22,14 @@ evaluator:
     - slot_f1
     - EMA
 
+accelerator:
+  use_accelerator: false
+
+dataset:
+        #dataset_name: atis
+  train: /home/kumara/atis/train.jsonl
+  validation: /home/kumara/atis/dev.jsonl
+  test: /home/kumara/atis/test.jsonl
 
 tokenizer:
   _tokenizer_name_: word_tokenizer
@@ -50,48 +52,30 @@ scheduler:
 
 model:
   _model_target_: model.OpenSLUModel
-
+  ignore_index: -100
   encoder:
-    _model_target_: model.encoder.BiEncoder
-    intent_encoder:
-      _model_target_: model.encoder.AutoEncoder
-      encoder_name: lstm
+    _model_target_: model.encoder.AutoEncoder
+    encoder_name: lstm
 
-      embedding:
-        embedding_dim: 256
-        dropout_rate: 0.4
+    embedding:
+      embedding_dim: 256
+      dropout_rate: 0.4
 
-      lstm:
-        dropout_rate: 0.5
-        output_dim: 256
-        layer_num: 2
-        bidirectional: true
+    lstm:
+      dropout_rate: 0.5
+      output_dim: 256
+      layer_num: 2
+      bidirectional: true
 
-      return_with_input: true
-      return_sentence_level_hidden: false
-
-    slot_encoder:
-      _model_target_: model.encoder.AutoEncoder
-      encoder_name: lstm
-
-      embedding:
-        embedding_dim: 256
-        dropout_rate: 0.4
-
-      lstm:
-        dropout_rate: 0.5
-        output_dim: 256
-        layer_num: 2
-        bidirectional: true
-
-      return_with_input: true
-      return_sentence_level_hidden: false
+    return_with_input: true
+    return_sentence_level_hidden: false
 
   decoder:
     _model_target_: model.decoder.BaseDecoder
-#    teacher_forcing: true
+
     interaction:
-      _model_target_: model.decoder.interaction.BiModelInteraction
+      _model_target_: model.decoder.interaction.SlotGatedInteraction
+      remove_slot_attn: false
       output_dim: 256
       dropout_rate: 0.4
 

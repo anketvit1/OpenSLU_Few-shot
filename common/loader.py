@@ -10,14 +10,28 @@ import os
 import torch
 import json
 from datasets import load_dataset, Dataset
+#dataset = load_dataset("LightChen2333/OpenSLU",'atis', trust_remote_code=True)
 from torch.utils.data import DataLoader
-
+import random
 from common.utils import InputData
+import numpy as np
+#from datasets import load_from_disk
+
+# Specify the path to your dataset directory
+#dataset_path = "/home/kumara/JointBERT/data/atis"
+
+# Load the dataset from the specified directory
+#dataset = load_from_disk(dataset_path)
 
 ABS_PATH=os.path.join(os.path.abspath(os.path.dirname(__file__)), "../")
 
+import random
+import json
+from collections import defaultdict
+from datasets import Dataset, load_dataset
+
 class DataFactory(object):
-    def __init__(self, tokenizer,use_multi_intent=False, to_lower_case=True):
+    def __init__(self, tokenizer, use_multi_intent=False, to_lower_case=True):
         """_summary_
 
         Args:
@@ -25,7 +39,6 @@ class DataFactory(object):
             use_multi_intent (bool, optional): _description_. Defaults to False.
         """
         self.tokenizer = tokenizer
-        
         self.use_multi = use_multi_intent
         self.to_lower_case = to_lower_case
         self.slot_label_dict = None
@@ -33,22 +46,149 @@ class DataFactory(object):
         self.slot_label_list = []
         self.intent_label_list = []
 
-    def __is_supported_datasets(self, dataset_name:str)->bool:
+    def __is_supported_datasets(self, dataset_name: str) -> bool:
         return dataset_name.lower() in ["atis", "snips", "mix-atis", "mix-snips"]
 
-    def load_dataset(self, dataset_config, split="train"):
+    def select_few_shot_samplesold(self, dataset, num_samples_per_class=5):
+        """
+        Selects a few-shot subset by picking 'num_samples_per_class' examples per intent.
+        """
+        class_samples = defaultdict(list)
+
+        # Group samples by intent label
+        for idx, intent in enumerate(dataset["intent"]):  # Assuming 'intent' is the label
+            class_samples[intent].append(idx)
+
+        # Select 'num_samples_per_class' randomly from each class
+        selected_indices = []
+        for intent, indices in class_samples.items():
+            selected_indices.extend(random.sample(indices, min(num_samples_per_class, len(indices))))
+
+        return dataset.select(selected_indices)
+
+    def select_few_shot_samples(self, dataset, num_samples_per_class=5):
+        """
+        Selects a few-shot subset by picking 'num_samples_per_class' examples per intent.
+        Also prints the selected samples for debugging.
+        """
+        class_samples = defaultdict(list)
+
+        # Group samples by intent label
+        for idx, intent in enumerate(dataset["intent"]):  # Assuming 'intent' is the label
+            class_samples[intent].append(idx)
+
+        # Select 'num_samples_per_class' randomly from each class
+        selected_indices = []
+        print("\n==== Few-Shot Sample Selection ====")
+        for intent, indices in class_samples.items():
+            selected_count = min(num_samples_per_class, len(indices))
+            selected = random.sample(indices, selected_count)
+            selected_indices.extend(selected)
+
+            # Print intent and selected sample count
+            print(f"Intent: {intent} | Total samples: {len(indices)} | Selected: {selected_count}")
+            # Print actual selected sample texts
+            #for idx in selected:
+            #    print(f"  → {dataset[idx]['text']}")
+
+        print("====================================\n")
+        return dataset.select(selected_indices)
+
+    def load_dataset(self, dataset_config, split="train", few_shot=False, num_shot=5):
+        dataset_name = None
+        if split not in dataset_config:
+            dataset_name = dataset_config.get("dataset_name")
+        elif self.__is_supported_datasets(dataset_config[split]):
+            dataset_name = dataset_config[split].lower()
+
+        if dataset_name is not None:
+            dataset = load_dataset("LightChen2333/OpenSLU", dataset_name, split=split)
+
+            # Shuffle only for training
+            if split == "train":
+                dataset = dataset.shuffle()
+
+            # Apply few-shot sampling if enabled
+            if few_shot:
+                dataset = self.select_few_shot_samples(dataset, num_shot)
+                print(f"Few-shot dataset size: {len(dataset)}")
+
+            print(f"Number of samples in {split} dataset: {len(dataset)}")
+            return dataset
+        else:
+            # File-based dataset loading
+            data_file = dataset_config[split]
+            data_dict = {"text": [], "slot": [], "intent": []}
+
+            with open(data_file, encoding="utf-8") as f:
+                lines = f.readlines()
+
+            if split == "train":
+                selected_lines = random.sample(lines, min(len(lines), 1000))  # Select 1000 samples max
+            else:
+                selected_lines = lines
+
+            for line in selected_lines:
+                row = json.loads(line)
+                if len(row["text"]) == len(row["slot"]):
+                    data_dict["text"].append(row["text"])
+                    data_dict["slot"].append(row["slot"])
+                    data_dict["intent"].append(row["intent"])
+                else:
+                    print("Error Input:", row)
+
+            dataset = Dataset.from_dict(data_dict)
+
+            # Apply few-shot selection
+            if few_shot:
+                dataset = self.select_few_shot_samples(dataset, num_shot)
+                print(f"Few-shot dataset size: {len(dataset)}")
+
+            return dataset
+
+    def load_dataset_old(self, dataset_config, split="train", fraction=0.1):
+        #print("Loading dataset with fraction:", fraction)
         dataset_name = None
         if split not in dataset_config:
             dataset_name = dataset_config.get("dataset_name")
         elif self.__is_supported_datasets(dataset_config[split]):
             dataset_name = dataset_config[split].lower()
         if dataset_name is not None:
-            return load_dataset("LightChen2333/OpenSLU", dataset_name, split=split)
+            #return load_dataset("LightChen2333/OpenSLU", dataset_name, split=split, fraction=fraction)
+            if split == "train":
+                dataset = load_dataset("LightChen2333/OpenSLU", dataset_name, split=split, fraction=fraction)
+                # Shuffle the dataset
+                dataset = dataset.shuffle()
+        
+                # Select a fraction of the dataset if specified
+                #if fraction is not None:
+                num_samples = int(len(dataset) * 0.03)
+                dataset = dataset.select(range(num_samples))
+                print(f"Loading {num_samples} samples") 
+                print(f"Number of samples in {split} dataset: {len(dataset)}")
+                return dataset
+            elif split == "validation":
+                dataset = load_dataset("LightChen2333/OpenSLU", dataset_name, split=split, fraction=None)
+                print(f"Number of samples in {split} dataset: {len(dataset)}")
+                return dataset
+            else:
+                dataset = load_dataset("LightChen2333/OpenSLU", dataset_name, split=split, fraction=None)
+                print(f"Number of samples in {split} dataset: {len(dataset)}")  # Print number of samples
+                return dataset
+                #return load_dataset("LightChen2333/OpenSLU", dataset_name, split=split, fraction=fraction)
         else:
             data_file = dataset_config[split]
-            data_dict = {"text": [], "slot": [], "intent":[]}
+            data_dict = {"text": [], "slot": [], "intent": []}
             with open(data_file, encoding="utf-8") as f:
-                for line in f:
+                lines = f.readlines()
+                if split == "train":
+                    num_lines_to_select = int(len(lines) * 0.03)  # Calculate the number of lines to select
+                    selected_lines = random.sample(lines, num_lines_to_select)
+                    print(f"Loading {num_lines_to_select} samples out of {len(lines)}")
+                else:
+                    selected_lines = lines
+                    print(f"Loading {len(selected_lines)} samples out of {len(lines)}")
+                for line in selected_lines:
                     row = json.loads(line)
                     if len(row["text"]) == len(row["slot"]):
                         data_dict["text"].append(row["text"])
@@ -57,6 +197,28 @@ class DataFactory(object):
                     else:
                         print("Error Input: ", row)
             return Dataset.from_dict(data_dict)
+
+    #def load_dataset(self, dataset_config, split="train"):
+    #    dataset_name = None
+    #    if split not in dataset_config:
+    #        dataset_name = dataset_config.get("dataset_name")
+    #    elif self.__is_supported_datasets(dataset_config[split]):
+    #        dataset_name = dataset_config[split].lower()
+    #    if dataset_name is not None:
+    #        return load_dataset("LightChen2333/OpenSLU", dataset_name, split=split)
+    #    else:
+    #        data_file = dataset_config[split]
+    #        data_dict = {"text": [], "slot": [], "intent":[]}
+    #        with open(data_file, encoding="utf-8") as f:
+    #            for line in f:
+    #                row = json.loads(line)
+    #                if len(row["text"]) == len(row["slot"]):
+    #                    data_dict["text"].append(row["text"])
+    #                    data_dict["slot"].append(row["slot"])
+    #                    data_dict["intent"].append(row["intent"])
+    #                else:
+    #                    print("Error Input: ", row)
+    #        return Dataset.from_dict(data_dict)
 
     def update_label_names(self, dataset, label_path=None):
         if label_path is not None:

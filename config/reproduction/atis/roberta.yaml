@@ -6,7 +6,7 @@ base:
   test: True
   device: cuda
   seed: 42
-  epoch_num: 300
+  epoch_num: 150
   batch_size: 32
 
 model_manager:
@@ -32,7 +32,7 @@ tokenizer:
   _tokenizer_name_: roberta-base
   _padding_side_: right
   add_special_tokens: true
-  max_length: 512
+  max_length: 50
 
 optimizer:
   _model_target_: torch.optim.AdamW
@@ -55,16 +55,62 @@ model:
     output_dim: 768
     return_with_input: true
     return_sentence_level_hidden: true
+  
+      #decoder:
+      #_model_target_: model.decoder.DCANetDecoder
+      #interaction:
+      #_model_target_: model.decoder.interaction.DCANetInteraction
+      #output_dim: 768
+      #attention_dropout: 0.5
+      #num_attention_heads: 8
+
+      #intent_classifier:
+      #_model_target_: model.decoder.classifier.LinearClassifier
+      #mode: "intent"
+      #input_dim: 768
+      #ignore_index: -100
+
+      #slot_classifier:
+      #_model_target_: model.decoder.classifier.LinearClassifier
+      #mode: "slot"
+      #input_dim: 768
+      #ignore_index: -100
 
   decoder:
-    _model_target_: model.decoder.base_decoder.BaseDecoder
+    _model_target_: model.decoder.BaseDecoder
+
+    interaction:
+      _model_target_: model.decoder.interaction.SlotGatedInteraction
+      remove_slot_attn: false
+      output_dim: 768
+      dropout_rate: 0.4
+
     intent_classifier:
       _model_target_: model.decoder.classifier.LinearClassifier
       mode: "intent"
       ignore_index: -100
 
-
     slot_classifier:
       _model_target_: model.decoder.classifier.LinearClassifier
       mode: "slot"
       ignore_index: -100
+
+  #decoder:
+  #  _model_target_: model.decoder.new_decoder.NewDecoder #model.decoder.base_decoder.BaseDecoder
+
+        #  interaction:
+        #_model_target_: model.decoder.interaction.new_interaction.NewInteraction #base_interaction.BaseInteraction
+        #hidden_dim: 768
+        #output_dim: 768
+        #dropout_rate: 0.1
+
+        #intent_classifier:
+        #_model_target_: model.decoder.classifier.LinearClassifier
+        #mode: "intent"
+        #ignore_index: -100
+
+
+        #slot_classifier:
+        #_model_target_: model.decoder.classifier.LinearClassifier
+        #mode: "slot"
+        #ignore_index: -100

@@ -32,7 +32,7 @@ from tools.load_from_hugging_face import PreTrainedTokenizerForSLU, PretrainedMo
 
 
 class ModelManager(object):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, data_fraction=None):
         """create model manager by config
 
         Args:
@@ -130,8 +130,13 @@ class ModelManager(object):
             # init dataloader & load data
             
             
-            train_dataset = self.data_factory.load_dataset(self.config.dataset, split="train")
-
+            #train_dataset = self.data_factory.load_dataset(self.config.dataset, split="train", fraction=self.config.base.get("data_fraction"))
+            train_dataset = self.data_factory.load_dataset(
+                self.config.dataset,
+                split="train",
+                few_shot=self.config.base.get("few_shot", True),#False),  # Enable few-shot mode if specified
+                num_shot=self.config.base.get("num_shot", 10)       # Default to 5 examples per class
+            )
             # update label and vocabulary (ONLY SUPPORT FOR "word_tokenizer")
             self.data_factory.update_label_names(train_dataset,
                                                  label_path=self.config.dataset.get("label_path"))

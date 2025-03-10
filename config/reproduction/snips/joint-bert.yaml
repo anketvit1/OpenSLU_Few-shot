@@ -6,7 +6,7 @@ base:
   test: true
   device: cuda
   seed: 42
-  epoch_num: 300
+  epoch_num: 600
   batch_size: 128
 
 model_manager:

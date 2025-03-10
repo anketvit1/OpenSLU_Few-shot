@@ -6,12 +6,12 @@ base:
   test: true
   device: cuda
   seed: 42
-  epoch_num: 300
-  batch_size: 32
+  epoch_num: 600
+  batch_size: 128
 
 model_manager:
   load_dir: null
-  save_dir: save/roberta-snips
+  save_dir: save/roberta-atis
 
 evaluator:
   best_key: EMA
@@ -26,13 +26,13 @@ accelerator:
   use_accelerator: false
 
 dataset:
-  dataset_name: snips
+  dataset_name: atis
 
 tokenizer:
     _tokenizer_name_: roberta-base
     _padding_side_: right
     add_special_tokens: true
-    max_length: 512
+    max_length: 50
 
 optimizer:
   _model_target_: torch.optim.AdamW

@@ -6,7 +6,7 @@ base:
   test: True
   device: cuda
   seed: 42
-  epoch_num: 300
+  epoch_num: 600
   batch_size: 128
 
 model_manager:
@@ -14,7 +14,7 @@ model_manager:
   save_dir: save/joint-bert-atis
 
 evaluator:
-  best_key: EMA
+  best_key: intent_acc
   eval_by_epoch: true
   # eval_step: 1800
   metric:
@@ -57,14 +57,33 @@ model:
     return_sentence_level_hidden: true
 
   decoder:
-    _model_target_: model.decoder.base_decoder.BaseDecoder
+    _model_target_: model.decoder.base_decoder.BaseDecoder # model.decoder.BaseDecoder
+
+    #interaction:
+      #_model_target_: model.decoder.base_decoder.BaseDecoder #model.decoder.interaction.SlotGatedInteraction
+      #remove_slot_attn: false
+      #output_dim: 768
+      #dropout_rate: 0.4
+
     intent_classifier:
       _model_target_: model.decoder.classifier.LinearClassifier
       mode: "intent"
       ignore_index: -100
 
-
     slot_classifier:
       _model_target_: model.decoder.classifier.LinearClassifier
       mode: "slot"
       ignore_index: -100
+
+        #  decoder:
+        #_model_target_: model.decoder.base_decoder.BaseDecoder
+        #intent_classifier:
+        #_model_target_: model.decoder.classifier.LinearClassifier
+        #mode: "intent"
+        #ignore_index: -100
+
+
+        #slot_classifier:
+        #_model_target_: model.decoder.classifier.LinearClassifier
+        #mode: "slot"
+        #ignore_index: -100
